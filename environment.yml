@@ -5,42 +5,78 @@ channels:
 dependencies:
   - absl-py=0.2.2=py_0
   - astor=0.6.2=py_0
+  - blas=1.1=openblas
   - bleach=1.5.0=py36_0
   - ca-certificates=2018.4.16=0
   - certifi=2018.4.16=py36_0
   - cffi=1.11.5=py36_0
+  - cycler=0.10.0=py36_0
+  - dbus=1.13.0=h3a4f0e9_0
+  - expat=2.2.5=0
+  - fontconfig=2.12.6=0
+  - freetype=2.8.1=0
   - gast=0.2.0=py_0
+  - gettext=0.19.8.1=0
+  - glib=2.55.0=0
+  - gst-plugins-base=1.8.0=0
+  - gstreamer=1.8.0=1
   - h5py=2.8.0=py36hb794570_1
   - hdf5=1.10.2=0
   - html5lib=0.9999999=py36_0
+  - icu=58.2=0
+  - jpeg=9b=2
   - keras=2.1.6=py36_0
+  - kiwisolver=1.0.1=py36_1
   - libffi=3.2.1=3
   - libgpuarray=0.7.6=0
+  - libiconv=1.15=0
+  - libpng=1.6.34=0
   - libprotobuf=3.5.2=0
+  - libxcb=1.13=0
+  - libxml2=2.9.8=0
   - mako=1.0.7=py36_0
   - markdown=2.6.11=py_0
   - markupsafe=1.0=py36_0
+  - matplotlib=2.2.2=py36_1
   - ncurses=5.9=10
   - ninja=1.8.2=h2d50403_1
+  - numpy=1.14.5=py36_blas_openblash24bf2e0_200
+  - openblas=0.2.20=8
   - openssl=1.0.2o=0
+  - pandas=0.23.1=py36_0
+  - patsy=0.5.0=py36_0
+  - pcre=8.41=1
   - pip=9.0.3=py36_0
   - protobuf=3.5.2=py36_0
   - pycparser=2.18=py36_0
   - pygpu=0.7.6=py36_0
+  - pyparsing=2.2.0=py36_0
+  - pyqt=5.6.0=py36_5
   - python=3.6.5=1
+  - python-dateutil=2.7.3=py_0
+  - pytz=2018.4=py_0
   - pyyaml=3.12=py36_1
+  - qt=5.6.2=7
   - readline=7.0=0
+  - scikit-learn=0.19.1=py36_blas_openblas_201
+  - scipy=1.1.0=py36_blas_openblas_200
+  - seaborn=0.8.1=py36_0
   - setuptools=39.2.0=py36_0
+  - sip=4.18=py36_1
   - six=1.11.0=py36_1
   - sqlite=3.20.1=2
+  - statsmodels=0.9.0=py36_0
   - tensorboard=1.8.0=py36_1
   - tensorflow=1.8.0=py36_1
   - termcolor=1.1.0=py36_1
   - theano=1.0.2=py36_0
   - tk=8.6.7=0
+  - tornado=5.0.2=py36_0
   - webencodings=0.5=py36_0
   - werkzeug=0.14.1=py_0
   - wheel=0.31.0=py36_0
+  - xorg-libxau=1.0.8=3
+  - xorg-libxdmcp=1.1.2=3
   - xz=5.2.3=0
   - yaml=0.1.7=0
   - zlib=1.2.11=h470a237_3
@@ -48,6 +84,7 @@ dependencies:
   - cudnn=7.1.2=cuda9.0_0
   - grpcio=1.12.1=py36hdbcaa40_0
   - intel-openmp=2018.0.3=0
+  - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=7.2.0=hdf63c60_3
   - libgfortran=3.0.0=1
   - libgfortran-ng=7.2.0=hdf63c60_3
@@ -55,11 +92,33 @@ dependencies:
   - libstdcxx-ng=7.2.0=hdf63c60_3
   - mkl=2018.0.3=1
   - nccl=1.3.5=cuda9.0_0
-  - numpy=1.14.3=py36h28100ab_2
   - numpy-base=1.14.3=py36h0ea5e3f_1
   - pytorch=0.4.0=py36hdf912b8_0
-  - scipy=1.1.0=py36hfc37229_0
   - pip:
+    - backcall==0.1.0
+    - chardet==3.0.4
+    - decorator==4.3.0
+    - idna==2.7
+    - ipyterminit==0.1.1
+    - ipython==6.4.0
+    - ipython-genutils==0.2.0
+    - jedi==0.12.0
+    - kaggle==1.3.11.1
+    - mizani==0.4.6
+    - palettable==3.1.1
+    - parso==0.2.1
+    - pexpect==4.6.0
+    - pickleshare==0.7.4
+    - plotnine==0.3.0
+    - prompt-toolkit==1.0.15
+    - ptyprocess==0.5.2
+    - pygments==2.2.0
+    - requests==2.19.1
     - seq2seq==1.0.0
+    - simplegeneric==0.8.1
     - torch==0.4.0
+    - tqdm==4.23.4
+    - traitlets==4.3.2
+    - urllib3==1.22
+    - wcwidth==0.1.7
 
