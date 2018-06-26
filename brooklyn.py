@@ -1,5 +1,3 @@
-import ipyterminit
-
 import keras
 from keras import Sequential
 from keras.layers import Embedding
