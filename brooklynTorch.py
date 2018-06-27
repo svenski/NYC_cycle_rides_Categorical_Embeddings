@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import ShuffleSplit
+from sklearn.metrics import r2_score
 
 from keras import Sequential
 from keras.layers import Embedding
@@ -32,43 +33,69 @@ from pandas.api.types import CategoricalDtype
 
 from mpl_toolkits.mplot3d import Axes3D
 
+
 def main():
     df = pd.read_csv("~/.kaggle/datasets/new-york-city/nyc-east-river-bicycle-crossings/nyc-east-river-bicycle-counts.csv")
 
+    df = cleanAndTransform(df)
+
     df['users'] = df['Brooklyn Bridge']
     df = df[df['users'] > 0]
-    df['scaled_users'] = (df['users'] - np.mean(df['users']))/np.std(df['users'])
+    df['scaled_users'] = normalise(df['users'])
 
     emb_size = 3
     embedding_names = [f'D{x+1}' for x in np.arange(emb_size)]
 
-    torch_emb = calculateTorchEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
-    emp_df = calculateKerasEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
+    torch_emb_mat = calculateTorchEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
+    keras_emb_mat = calculateKerasEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
 
-    df = pd.merge(df, emp_df, on = 'weekday')
-    dummyw = pd.get_dummies(df['weekday_name'])
+    keras_X = pd.merge(df[['weekday']], keras_emb_mat, on = 'weekday').drop('weekday', axis=1)
+    torch_X = pd.merge(df[['weekday']], torch_emb_mat, on = 'weekday').drop('weekday', axis=1)
+    dummy_X = pd.get_dummies(df['weekday_name'])
 
-    df_X = pd.concat([df, dummyw], ignore_index= False, axis = 1)
-    y = df_X['Williamsburg Bridge']
-
-    all_x = embedding_names + weekdays
-    df_X = df_X[all_x]
+    y = df['Williamsburg Bridge']
 
     model = LinearRegression()
 
-    cat_x = df_X[weekdays]
-    emb_x = df_X[embedding_names]
-
     bootstrap = ShuffleSplit(n_splits=100,  random_state=0)
-    cat_scores = cross_val_score(model, cat_x, y, scoring="neg_mean_squared_error", cv=bootstrap)
-    emb_scores = cross_val_score(model, emb_x, y, scoring="neg_mean_squared_error", cv=bootstrap)
+    keras_scores = cross_val_score(model, keras_X, y, cv=bootstrap, scoring='r2')
+    torch_scores = cross_val_score(model, torch_X, y, cv=bootstrap, scoring='r2')
+    dummy_scores = cross_val_score(model, dummy_X, y, cv=bootstrap, scoring='r2')
 
-    scores = pd.DataFrame({ 'categorical':-cat_scores, 'embedded':-emb_scores})
-    scores.mean()
+    scores = pd.DataFrame({'torch':torch_scores, 'keras':keras_scores, 'dummy':dummy_scores, 'ind' : np.arange(len(dummy_scores))})
+    scores_df = scores.set_index('ind').stack().reset_index()
+    scores_df.columns = ['ind','type','r2']
+    ggplot(scores_df, aes('type','r2')) + geom_boxplot()
 
-    ggplot(scores, aes('categorical')) + geom_density() + geom_density(aes('embedded'), color = 'red')
+    import statsmodels.api as sm
+    
+    keras_rsq = []
+    torch_rsq = []
+    dummy_rsq = []
+    
+    y = normalise(df['Williamsburg Bridge'])
 
-def deriveDateData(df):
+    num_simulations = 100
+
+    for i in np.arange(num_simulations):
+        val_ids = get_cv_idxs(len(df), seed = np.random.randint(0,10000,1))
+
+        keras_rsq.append(rsq_for(val_ids, keras_X, y))
+        torch_rsq.append(rsq_for(val_ids, torch_X, y))
+        dummy_rsq.append(rsq_for(val_ids, dummy_X, y))
+
+    scores = pd.DataFrame({'torch':torch_rsq, 'keras':keras_rsq, 'dummy':dummy_rsq, 'ind' : np.arange(num_simulations)})
+    scores_df = scores.set_index('ind').stack().reset_index()
+    scores_df.columns = ['ind','type','r2']
+
+    ggplot(scores_df, aes('type','r2')) + geom_boxplot()
+
+    
+    
+def normalise(x):
+    return (x-np.mean(x))/np.std(x)
+
+def cleanAndTransform(df):
     df['date'] = pd.to_datetime(df['Date'])
     df['weekday'] = df['date'].dt.weekday
     df['weekday_name'] = df['date'].dt.weekday_name
@@ -175,3 +202,20 @@ def exploration(df):
     plotWeekdayCounts(df,brigde)
     ggplot(df, aes(brigde)) + geom_density(aes(fill = 'weekday_name'), alpha = 0.3) + facet_wrap('~weekday_name')
 
+def rsq_for(val_ids, keras_X, y):
+    y_train, y_val = split_by(val_ids, y)
+    keras_train, keras_val = split_by(val_ids, keras_X)
+
+    keras_model = sm.OLS(y_train, keras_train).fit()
+    y_pred = keras_model.predict(keras_val)
+    return(r2_score(y_val, y_pred))
+
+def split_by(validation_idx, df_raw):
+    if(isinstance(df_raw, pd.DataFrame) or isinstance(df_raw, pd.Series)):
+        raw_valid = df_raw.iloc[validation_idx]
+        raw_train = df_raw.loc[~df_raw.index.isin(raw_valid.index)]
+    else:
+        raw_valid = np.take(df_raw, validation_idx)
+        raw_train = np.delete(df_raw, validation_idx)
+
+    return raw_train, raw_valid
