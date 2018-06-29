@@ -33,6 +33,14 @@ from pandas.api.types import CategoricalDtype
 
 from mpl_toolkits.mplot3d import Axes3D
 
+from collections import namedtuple
+
+def calculateEmbeddingScoreUsing(embeddingMatrixFunction, df, emb_size, embedding_names, batch_size, cross_val_model):
+    emb_mat = embeddingMatrixFunction(emb_size, embedding_names, df, batch_size=batch_size)
+    X = pd.merge(df[['weekday']], emb_mat, on = 'weekday').drop('weekday', axis=1)
+    cv_score = cross_val_score(cross_val_model.model, X, normalise(cross_val_model.y), cv=cross_val_model.bootstrap, scoring='r2')
+    return(emb_mat, X, cv_score)
+
 
 def main():
     df = pd.read_csv("~/.kaggle/datasets/new-york-city/nyc-east-river-bicycle-crossings/nyc-east-river-bicycle-counts.csv")
@@ -44,29 +52,36 @@ def main():
     df['scaled_users'] = normalise(df['users'])
 
     emb_size = 3
+    batch_size = 2
     embedding_names = [f'D{x+1}' for x in np.arange(emb_size)]
 
-    torch_emb_mat = calculateTorchEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
-    keras_emb_mat = calculateKerasEmbeddingMatrix(emb_size, embedding_names, df, batch_size=2)
+    CrossValidationModel = namedtuple('CrossValidationModel', ['model', 'y', 'bootstrap'])
+    linearCrossValidation = CrossValidationModel(LinearRegression(), df['Williamsburg Bridge'], ShuffleSplit(n_splits=100))
 
-    keras_X = pd.merge(df[['weekday']], keras_emb_mat, on = 'weekday').drop('weekday', axis=1)
-    torch_X = pd.merge(df[['weekday']], torch_emb_mat, on = 'weekday').drop('weekday', axis=1)
+    EmbeddingData = namedtuple('Embedding', ['embedding_matrix', 'X', 'cv_score'])
+
+    torch_emb = EmbeddingData(*calculateEmbeddingScoreUsing(calculateTorchEmbeddingMatrix, df, emb_size, embedding_names, batch_size, linearCrossValidation))
+    torch_man_emg = EmbeddingData(* calculateEmbeddingScoreUsing(calculateTorchManualEmbeddingMatrix, df, emb_size, embedding_names, batch_size, linearCrossValidation))
+    keras_emb = EmbeddingData(*calculateEmbeddingScoreUsing(calculateKerasEmbeddingMatrix, df, emb_size, embedding_names, batch_size, linearCrossValidation))
+
     dummy_X = pd.get_dummies(df['weekday_name'])
-
-    y = df['Williamsburg Bridge']
-
-    model = LinearRegression()
-
-    bootstrap = ShuffleSplit(n_splits=100,  random_state=0)
-    keras_scores = cross_val_score(model, keras_X, y, cv=bootstrap, scoring='r2')
-    torch_scores = cross_val_score(model, torch_X, y, cv=bootstrap, scoring='r2')
     dummy_scores = cross_val_score(model, dummy_X, y, cv=bootstrap, scoring='r2')
+    dummy_emb = EmbeddingData(None, dummy_X, dummy_scores)
 
-    scores = pd.DataFrame({'torch':torch_scores, 'keras':keras_scores, 'dummy':dummy_scores, 'ind' : np.arange(len(dummy_scores))})
+
+    scores = pd.DataFrame({'torch': torch_emb.scores, 
+        'keras':keras_emb.scores, 
+        'dummy':dummy_scores,
+        'manual_torch':torch_man_emg.scores,
+        'ind' : np.arange(len(dummy_scores))})
+
     scores_df = scores.set_index('ind').stack().reset_index()
     scores_df.columns = ['ind','type','r2']
+
     ggplot(scores_df, aes('type','r2')) + geom_boxplot()
 
+
+def crossValUsingStatsmodel():
     import statsmodels.api as sm
     
     keras_rsq = []
@@ -181,6 +196,45 @@ def calculateTorchEmbeddingMatrix(emb_size, embedding_names, df, batch_size):
     fit(model, data, 30, opt, F.mse_loss)
 
     emb_matrix =  model.weekdays.weight.data.cpu().numpy()
+
+    emp_df = pd.DataFrame(emb_matrix, columns = embedding_names)
+    emp_df['weekday'] = np.arange(0,7)
+    # list(model.parameters())
+
+    return(emp_df)
+
+
+def calculateTorchManualEmbeddingMatrix(emb_size, embedding_names, df, batch_size):
+    n_days = 7
+
+    val_idx = get_cv_idxs(len(df))
+    dummy_X = pd.get_dummies(df['weekday_name'])
+    cols = dummy_X.columns.values.astype(str)
+    
+    data = ColumnarModelData.from_data_frame('', val_idx, dummy_X, df['scaled_users'], [], 2)
+
+    class weekdayEmbeddingManual(nn.Module):
+        def __init__(self, n_days):
+            super().__init__()
+            self.emb = nn.Linear(n_days, emb_size)
+            self.lin1 = nn.Linear(emb_size, 40)
+            self.lin2 = nn.Linear(40, 10)
+            self.lin3 = nn.Linear(10,1)
+            #self.drop1 = nn.Dropout(0.5)
+        
+        def forward(self, cats, conts):
+
+            x = self.emb(conts)
+            x = F.relu((self.lin1(x)))
+            x = F.relu((self.lin2(x)))
+            return(self.lin3(x))
+
+    model = weekdayEmbeddingManual(n_days).cuda()
+    opt = optim.Adam(model.parameters(), 1e-3)
+    fit(model, data, 30, opt, F.mse_loss)
+    fit(model, data, 30, opt, F.mse_loss)
+
+    emb_matrix = np.transpose(model.emb.weight.data.cpu().numpy())
 
     emp_df = pd.DataFrame(emb_matrix, columns = embedding_names)
     emp_df['weekday'] = np.arange(0,7)
