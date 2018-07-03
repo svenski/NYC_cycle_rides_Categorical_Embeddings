@@ -35,6 +35,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from collections import namedtuple
 
+from kaggleUtils.kaggleUtils import printAllPandasColumns
+
 def calculateEmbeddingScoreUsing(embeddingMatrixFunction, df, emb_size, embedding_names, batch_size, cross_val_model):
     emb_mat = embeddingMatrixFunction(emb_size, embedding_names, df, batch_size=batch_size)
     X = pd.merge(df[['weekday']], emb_mat, on = 'weekday').drop('weekday', axis=1)
@@ -43,6 +45,7 @@ def calculateEmbeddingScoreUsing(embeddingMatrixFunction, df, emb_size, embeddin
 
 
 def main():
+    printAllPandasColumns()
     df = pd.read_csv("~/.kaggle/datasets/new-york-city/nyc-east-river-bicycle-crossings/nyc-east-river-bicycle-counts.csv")
 
     df = cleanAndTransform(df)

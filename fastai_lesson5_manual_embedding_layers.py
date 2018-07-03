@@ -24,7 +24,6 @@ def main():
 
     x = ratings.drop(['rating', 'timestamp'],axis=1)
     y = ratings['rating'].astype(np.float32)
-
     
     x_user_dummies = pd.get_dummies(x['userId'])
     x_movies_dummies = pd.get_dummies(x['movieId'])
@@ -70,6 +69,9 @@ def main():
     user_emb_matrix = np.transpose(model.users.weight.data.cpu().numpy())
     movie_emb_matrix = np.transpose(model.movies.weight.data.cpu().numpy())
 
+    movie_bias = model.movies.bias
+
+
     from sklearn.decomposition import PCA
     pca = PCA(n_components = 3)
     movie_pca = pca.fit(movie_emb_matrix.T).components_
@@ -85,12 +87,9 @@ def main():
     sorted(movie_comp, key=itemgetter(0))[:15]
     sorted(movie_comp, key=itemgetter(0), reverse=True)[:15]
 
-    fac0 = movie_pca[1]
-    movie_comp = [(f, movie_names[idx2movie[i]]) for f,i in zip(fac0, np.arange(len(fac0)))]
-
-    sorted(movie_comp, key=itemgetter(0))[:15]
-    sorted(movie_comp, key=itemgetter(0), reverse=True)[:15]
+    from sklearn.manifold import TSNE
 
 
-  # TOOD: T-SNE
+
+# TOOD: T-SNE
 # TODO: add genre
