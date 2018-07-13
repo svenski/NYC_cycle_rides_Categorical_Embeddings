@@ -14,7 +14,7 @@ def main():
     gg = movies[['movieId','genres']]
     genres_full = pd.merge(ratings[['movieId']], gg, on = 'movieId', how = 'left')
     genres_full_one_hot = genres_full.drop('movieId', axis =1)['genres'].str.get_dummies(sep="|")
-    genre_dummies = pd.concat([movies[['movieId']], genres_full_one_hot], axis=1)
+    genre_dummies = pd.concat([ratings[['movieId']], genres_full_one_hot], axis=1)
 
     val_idxs = get_cv_idxs(len(ratings))
 
@@ -36,14 +36,41 @@ def main():
 
     min_rating,max_rating = ratings.rating.min(),ratings.rating.max()
 
-    model, user_emb_matrix, movie_emb_matrix = userMovieEmbedding(x, y, val_idxs, min_rating, max_rating)
-    # genre_model, rest = genreEmbedding(genre_dummies, y, val_idxs, min_rating, max_rating)
-    model, user_emb_matrix, movie_emb_matrix = genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating)
+    model, embeddings, um_val_loss = userMovieEmbedding(x, y, val_idxs, min_rating, max_rating)
+    model, genre_embeddings, genre_val_loss = genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating)
+
+    genre_emb = genre_embeddings['genre']
+    genre_names = genre_dummies.columns.values[1:]
+
+
+def tsne_genre(genre_emb, genre_names):
+
+    from sklearn.manifold import TSNE
+
+    tsne = TSNE(n_components = 2, verbose = 1)
+    genre_tsne = tsne.fit_transform(genre_emb)
+    bb = pd.DataFrame(genre_names, columns = ['genre'])
+    genres_tsne_df = pd.DataFrame( genre_tsne, columns = ['x1','x2'])
+    genres_tsne_df = pd.concat([bb, genres_tsne_df], axis = 1)
+
+    from plotnine import *
+
+    chart = ggplot(genres_tsne_df, aes('x1','x2', color='genre')) + geom_point()
+    chart
+
+    
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components = 2)
+    genre_pca = pca.fit(genre_emb.T).components_
+
+    genres_pca_df = pd.DataFrame( genre_tsne, columns = ['x1','x2'])
+    genres_pca_df = pd.concat([bb, genres_tsne_df], axis = 1)
 
 
 
-# TOOD: T-SNE
-# TODO: add genre
+    
+
+# TODO: T-SNE
 # TODO: add genre normalisation
 # TODO: Use genre as uniqe combination
 # TODO: 
@@ -52,9 +79,6 @@ def genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating):
 
     x_genre_dummies = genre_dummies.drop('movieId', axis=1).astype("uint8")
     n_genres = x_genre_dummies.shape[1]
-
-    # use cats for genre
-    cats = x_genre_dummies.columns.values
 
     x_user_dummies = pd.get_dummies(x['userId'])
     x_movies_dummies = pd.get_dummies(x['movieId'])
@@ -68,7 +92,7 @@ def genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating):
     n_factors_genre = 10
 
     class ManualEmbeddingNetGenre(nn.Module):
-        def __init__(self, n_users, n_movies, nh=10, p1=0.05, p2=0.5):
+        def __init__(self, n_users, n_movies, nh=10, p1=0.2, p2=0.5):
             super().__init__()
             self.users = nn.Linear(n_users, n_factors)
             self.movies = nn.Linear(n_movies, n_factors)
@@ -82,7 +106,7 @@ def genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating):
         def forward(self, cats, conts):
             users = conts[:, :n_users]
             movies = conts[:, n_users:(n_users+n_movies)] 
-            genres = conts[:, n_genres:] 
+            genres = conts[:, -n_genres:] 
 
             user_emb = self.users(users)
             movies_emb = self.movies(movies)
@@ -96,15 +120,14 @@ def genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating):
     opt = optim.Adam(model.parameters(), 1e-3, weight_decay=wd)
 
     fit(model, data, 3, opt, F.mse_loss)
-    set_lrs(opt, 1e-2)
     fit(model, data, 3, opt, F.mse_loss)
-    set_lrs(opt, 1e-3)
-    fit(model, data, 3, opt, F.mse_loss)
+    val_loss = fit(model, data, 3, opt, F.mse_loss)
 
     user_emb_matrix = np.transpose(model.users.weight.data.cpu().numpy())
     movie_emb_matrix = np.transpose(model.movies.weight.data.cpu().numpy())
+    genre_emb_matrix = np.transpose(model.genres.weight.data.cpu().numpy())
 
-    return model, user_emb_matrix, movie_emb_matrix
+    return model, {'user': user_emb_matrix, 'movie':movie_emb_matrix, 'genre':genre_emb_matrix}, val_loss[0][0]
 
 
 def userMovieEmbedding(x, y, val_idxs, min_rating, max_rating):
@@ -144,15 +167,13 @@ def userMovieEmbedding(x, y, val_idxs, min_rating, max_rating):
     opt = optim.Adam(model.parameters(), 1e-3, weight_decay=wd)
 
     fit(model, data, 3, opt, F.mse_loss)
-    set_lrs(opt, 1e-2)
     fit(model, data, 3, opt, F.mse_loss)
-    set_lrs(opt, 1e-3)
-    fit(model, data, 3, opt, F.mse_loss)
+    val_loss = fit(model, data, 3, opt, F.mse_loss)
 
     user_emb_matrix = np.transpose(model.users.weight.data.cpu().numpy())
     movie_emb_matrix = np.transpose(model.movies.weight.data.cpu().numpy())
 
-    return model, user_emb_matrix, movie_emb_matrix
+    return model, {'user': user_emb_matrix, 'movie':movie_emb_matrix}, val_loss[0][0]
 
 
 def viz():
@@ -172,4 +193,3 @@ def viz():
     sorted(mm, key=itemgetter(0))[:15]
     sorted(mm, key=itemgetter(0), reverse=True)[:15]
 
-    from sklearn.manifold import TSNE
