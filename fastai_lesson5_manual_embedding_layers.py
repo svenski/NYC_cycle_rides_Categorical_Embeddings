@@ -46,34 +46,30 @@ def main():
 def tsne_genre(genre_emb, genre_names):
 
     from sklearn.manifold import TSNE
+    from sklearn.decomposition import PCA
+    from plotnine import *
 
-    tsne = TSNE(n_components = 2, verbose = 1)
+    tsne = TSNE(n_components = 2, verbose = 1, perplexity=5)
     genre_tsne = tsne.fit_transform(genre_emb)
     bb = pd.DataFrame(genre_names, columns = ['genre'])
     genres_tsne_df = pd.DataFrame( genre_tsne, columns = ['x1','x2'])
     genres_tsne_df = pd.concat([bb, genres_tsne_df], axis = 1)
 
-    from plotnine import *
 
-    chart = ggplot(genres_tsne_df, aes('x1','x2', color='genre')) + geom_point()
-    chart
-
+    chart = ggplot(genres_tsne_df, aes('x1','x2', color='genre', label='genre')) + geom_point() + geom_text()
     
-    from sklearn.decomposition import PCA
     pca = PCA(n_components = 2)
     genre_pca = pca.fit(genre_emb.T).components_
 
-    genres_pca_df = pd.DataFrame( genre_tsne, columns = ['x1','x2'])
-    genres_pca_df = pd.concat([bb, genres_tsne_df], axis = 1)
+    genres_pca_df = pd.DataFrame( genre_pca.T, columns = ['x1','x2'])
+    genres_pca_df = pd.concat([bb, genres_pca_df], axis = 1)
 
+    ggplot(genres_pca_df, aes('x1','x2', color='genre', label='genre')) + geom_point() + geom_text()
 
-
-    
 
 # TODO: T-SNE
 # TODO: add genre normalisation
 # TODO: Use genre as uniqe combination
-# TODO: 
 
 def genreEmbedding(x, genre_dummies, y, val_idxs, min_rating, max_rating):
 
